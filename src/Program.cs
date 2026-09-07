@@ -1086,7 +1086,26 @@ namespace CodexConversationNavigator
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(34) });
 
-            var header = new Grid();
+            var header = new Grid
+            {
+                Background = Brushes.Transparent,
+                Cursor = Cursors.SizeAll,
+                Focusable = true,
+                ToolTip = "拖动顶部标题栏可移动悬浮球与目录；方向键可微调"
+            };
+            AutomationProperties.SetName(header, "移动悬浮球与对话目录");
+            AutomationProperties.SetHelpText(header, "拖动顶部非按钮区域移动；方向键移动 10 像素，Shift 加方向键移动 1 像素");
+            header.PreviewMouseLeftButtonDown += OnHeaderMouseDown;
+            header.PreviewMouseMove += OnHeaderMouseMove;
+            header.PreviewMouseLeftButtonUp += OnHeaderMouseUp;
+            header.LostMouseCapture += OnHeaderLostMouseCapture;
+            header.KeyDown += OnHeaderKeyDown;
+            header.GotKeyboardFocus += delegate(object sender, KeyboardFocusChangedEventArgs e)
+            {
+                if (ReferenceEquals(e.NewFocus, header))
+                    header.Background = WarmGlassTheme.Solid("#20FFFFFF");
+            };
+            header.LostKeyboardFocus += delegate { header.Background = Brushes.Transparent; };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1117,60 +1136,8 @@ namespace CodexConversationNavigator
             };
             titleStack.Children.Add(_count);
 
-            var dragContent = new Grid();
-            dragContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            dragContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            dragContent.Children.Add(titleStack);
-            var dragGrip = new StackPanel
-            {
-                Width = 18,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Margin = new Thickness(8, 0, 2, 0),
-                IsHitTestVisible = false
-            };
-            dragGrip.Children.Add(new Border
-            {
-                Width = 14,
-                Height = 1.5,
-                CornerRadius = new CornerRadius(0.75),
-                Background = WarmGlassTheme.MutedInk,
-                Opacity = 0.42,
-                Margin = new Thickness(0, 0, 0, 3)
-            });
-            dragGrip.Children.Add(new Border
-            {
-                Width = 14,
-                Height = 1.5,
-                CornerRadius = new CornerRadius(0.75),
-                Background = WarmGlassTheme.MutedInk,
-                Opacity = 0.42
-            });
-            Grid.SetColumn(dragGrip, 1);
-            dragContent.Children.Add(dragGrip);
-
-            var dragSurface = new Border
-            {
-                Background = Brushes.Transparent,
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(4, 0, 4, 0),
-                Margin = new Thickness(-4, 0, 7, 0),
-                Cursor = Cursors.SizeAll,
-                Focusable = true,
-                Child = dragContent,
-                ToolTip = "拖动可移动悬浮球与目录；方向键可微调"
-            };
-            AutomationProperties.SetName(dragSurface, "移动悬浮球与对话目录");
-            AutomationProperties.SetHelpText(dragSurface, "拖动移动；方向键移动 10 像素，Shift 加方向键移动 1 像素");
-            dragSurface.PreviewMouseLeftButtonDown += OnHeaderMouseDown;
-            dragSurface.PreviewMouseMove += OnHeaderMouseMove;
-            dragSurface.PreviewMouseLeftButtonUp += OnHeaderMouseUp;
-            dragSurface.LostMouseCapture += OnHeaderLostMouseCapture;
-            dragSurface.KeyDown += OnHeaderKeyDown;
-            dragSurface.GotKeyboardFocus += delegate { dragSurface.Background = WarmGlassTheme.Solid("#38FFFFFF"); };
-            dragSurface.LostKeyboardFocus += delegate { dragSurface.Background = Brushes.Transparent; };
-            Grid.SetColumn(dragSurface, 0);
-            header.Children.Add(dragSurface);
+            Grid.SetColumn(titleStack, 0);
+            header.Children.Add(titleStack);
 
             _modeButton = HeaderButton("全部 ⇄", "对话视图：全部对话，点击切换", false);
             _modeButton.MinWidth = 62;
@@ -1304,6 +1271,7 @@ namespace CodexConversationNavigator
         {
             if (e.ChangedButton != MouseButton.Left) return;
             var surface = (UIElement)sender;
+            if (IsHeaderActionSource(e.OriginalSource as DependencyObject, surface)) return;
             surface.Focus();
             _headerMouseDown = ScreenPointInDips(e.GetPosition(this));
             _panelDown = new Point(Left, Top);
@@ -1333,6 +1301,7 @@ namespace CodexConversationNavigator
         {
             if (e.ChangedButton != MouseButton.Left) return;
             var surface = (UIElement)sender;
+            if (!surface.IsMouseCaptured) return;
             if (surface.IsMouseCaptured) surface.ReleaseMouseCapture();
             FinishHeaderDrag();
             e.Handled = true;
@@ -1353,6 +1322,7 @@ namespace CodexConversationNavigator
 
         private void OnHeaderKeyDown(object sender, KeyEventArgs e)
         {
+            if (!ReferenceEquals(Keyboard.FocusedElement, sender)) return;
             double step = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? 1 : 10;
             Vector delta;
             if (e.Key == Key.Left) delta = new Vector(-step, 0);
@@ -1362,6 +1332,17 @@ namespace CodexConversationNavigator
             else return;
             _controller.NudgePanelGroup(delta);
             e.Handled = true;
+        }
+
+        private static bool IsHeaderActionSource(DependencyObject source, UIElement header)
+        {
+            DependencyObject current = source;
+            while (current != null && !ReferenceEquals(current, header))
+            {
+                if (current is ButtonBase) return true;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            return false;
         }
 
         private void AnimateBackdropOpacity(double targetOpacity, int durationMilliseconds)
@@ -1740,7 +1721,8 @@ namespace CodexConversationNavigator
                 Foreground = dark ? Brushes.White : WarmGlassTheme.Ink,
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
-                FocusVisualStyle = null
+                FocusVisualStyle = null,
+                Cursor = Cursors.Hand
             };
             button.Template = RoundedButtonTemplate(dark ? 18 : 12, dark);
             AutomationProperties.SetName(button, accessibleName);
