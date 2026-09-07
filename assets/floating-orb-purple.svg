@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">紫蓝霓虹液态悬浮球</title>
+  <desc id="desc">透明背景上的玻璃质感紫蓝悬浮球，带有环形霓虹光晕。</desc>
+  <defs>
+    <radialGradient id="aura" cx="51%" cy="46%" r="52%">
+      <stop offset="0" stop-color="#a744ff" stop-opacity=".44"/>
+      <stop offset=".36" stop-color="#4e35d0" stop-opacity=".19"/>
+      <stop offset="1" stop-color="#101c59" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glass" cx="29%" cy="21%" r="88%">
+      <stop offset="0" stop-color="#e7ffff"/>
+      <stop offset=".10" stop-color="#8cfff8"/>
+      <stop offset=".25" stop-color="#1aafe3"/>
+      <stop offset=".44" stop-color="#15216c"/>
+      <stop offset=".70" stop-color="#42159c"/>
+      <stop offset="1" stop-color="#050724"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="15%" y1="8%" x2="90%" y2="92%">
+      <stop offset="0" stop-color="#d9ffff"/>
+      <stop offset=".18" stop-color="#42e7ff"/>
+      <stop offset=".48" stop-color="#d8fcff"/>
+      <stop offset=".71" stop-color="#fc37db"/>
+      <stop offset="1" stop-color="#7a35ff"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="18%" y1="15%" x2="88%" y2="86%">
+      <stop offset="0" stop-color="#6cf4ff"/>
+      <stop offset=".29" stop-color="#ccf7ff"/>
+      <stop offset=".52" stop-color="#5872ff"/>
+      <stop offset=".79" stop-color="#f795ff"/>
+      <stop offset="1" stop-color="#6bfbff"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="13%" y1="15%" x2="90%" y2="90%">
+      <stop offset="0" stop-color="#edffff" stop-opacity=".92"/>
+      <stop offset=".36" stop-color="#23dfff" stop-opacity=".68"/>
+      <stop offset=".67" stop-color="#ed33ff" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#a960ff" stop-opacity=".08"/>
+    </linearGradient>
+    <filter id="blur18" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="blur30" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="30"/></filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="13" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="28"/></filter>
+    <clipPath id="orbClip"><circle cx="512" cy="510" r="344"/></clipPath>
+  </defs>
+
+  <!-- soft outer illumination -->
+  <circle cx="512" cy="510" r="486" fill="url(#aura)" filter="url(#blur30)"/>
+  <circle cx="512" cy="510" r="437" fill="none" stroke="#5feeff" stroke-opacity=".28" stroke-width="35" filter="url(#softGlow)"/>
+  <circle cx="512" cy="510" r="438" fill="none" stroke="#ed70ff" stroke-opacity=".27" stroke-width="36" stroke-dasharray="675 2080" stroke-dashoffset="-750" filter="url(#softGlow)"/>
+
+  <!-- offset halo, intentionally separate from the glass sphere -->
+  <circle cx="512" cy="510" r="430" fill="none" stroke="#54e9ff" stroke-width="13" stroke-opacity=".9" filter="url(#glow)"/>
+  <circle cx="512" cy="510" r="430" fill="none" stroke="url(#ring)" stroke-width="8"/>
+  <path d="M250 838A430 430 0 0 1 112 530" fill="none" stroke="#47cfff" stroke-width="15" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M601 93A430 430 0 0 1 929 502" fill="none" stroke="#fa89ff" stroke-width="15" stroke-linecap="round" filter="url(#glow)"/>
+
+  <!-- liquid glass body -->
+  <circle cx="512" cy="510" r="354" fill="#1b0f71" opacity=".65" filter="url(#blur18)"/>
+  <circle cx="512" cy="510" r="344" fill="url(#glass)"/>
+  <g clip-path="url(#orbClip)">
+    <ellipse cx="335" cy="302" rx="207" ry="138" fill="#aaffff" opacity=".63" filter="url(#blur30)"/>
+    <ellipse cx="226" cy="501" rx="96" ry="224" fill="#34d9ff" opacity=".58" filter="url(#blur30)"/>
+    <ellipse cx="733" cy="472" rx="209" ry="239" fill="#b614ff" opacity=".73" filter="url(#blur30)"/>
+    <ellipse cx="582" cy="844" rx="246" ry="98" fill="#5b13c4" opacity=".76" filter="url(#blur30)"/>
+    <path d="M138 738C272 671 380 694 467 738c75 38 147 50 239 15 76-29 122-45 205-11l47 142H132z" fill="url(#ribbon)" filter="url(#blur18)"/>
+    <path d="M706 299c72 8 135 64 174 128-99-3-160 44-233 111-78 72-128 110-219 97 101-84 176-214 278-336z" fill="#a322ef" opacity=".6" filter="url(#blur18)"/>
+    <path d="M615 303c94 5 164 46 238 102-74 8-125 44-193 107-61 57-114 100-205 123 55-60 91-116 126-182 16-32 24-77 34-150z" fill="none" stroke="#f3bcff" stroke-width="19" stroke-linecap="round" opacity=".74" filter="url(#glow)"/>
+    <ellipse cx="452" cy="473" rx="198" ry="220" fill="#07002f" opacity=".78" filter="url(#blur18)"/>
+    <ellipse cx="455" cy="485" rx="124" ry="158" fill="#040220" opacity=".88" filter="url(#blur18)"/>
+    <path d="M156 399c23-125 124-230 242-250-78 55-124 128-152 217-28 91-20 164-3 231-83-44-109-116-87-198z" fill="#daffff" opacity=".33" filter="url(#blur18)"/>
+    <ellipse cx="365" cy="220" rx="161" ry="55" fill="#ffffff" opacity=".23" filter="url(#blur30)"/>
+  </g>
+  <circle cx="512" cy="510" r="344" fill="none" stroke="url(#rim)" stroke-width="11" filter="url(#glow)"/>
+  <path d="M217 365C266 224 385 167 509 169" fill="none" stroke="#edffff" stroke-opacity=".85" stroke-width="13" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M300 761c89 85 257 123 397 32" fill="none" stroke="#c7ffff" stroke-opacity=".53" stroke-width="10" stroke-linecap="round" filter="url(#glow)"/>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "name": "codex-conversation-navigator",
+  "version": "0.1.0+codex.20260906171441",
+  "description": "Local Windows floating navigator for Codex conversations",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex \u5bf9\u8bdd\u76ee\u5f55",
+    "shortDescription": "\u70b9\u51fb\u60ac\u6d6e\u6309\u94ae\u5feb\u901f\u5b9a\u4f4d\u5f53\u524d\u4efb\u52a1\u4e2d\u7684\u6d88\u606f\u3002",
+    "longDescription": "\u5728 Windows \u4e0a\u63d0\u4f9b\u4e00\u4e2a\u8f7b\u91cf\u3001\u79bb\u7ebf\u7684 Codex \u5bf9\u8bdd\u76ee\u5f55\u60ac\u6d6e\u5de5\u5177\u3002\u7528\u6237\u6d88\u606f\u548c ChatGPT \u56de\u590d\u4ee5\u5de6\u53f3\u804a\u5929\u6c14\u6ce1\u5c55\u793a\uff0c\u53ef\u5207\u6362\u5168\u90e8\u3001\u6a21\u578b\u6216\u7528\u6237\u89c6\u56fe\uff0c\u70b9\u51fb\u5373\u53ef\u6eda\u52a8\u5b9a\u4f4d\u3002",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "\u6253\u5f00 Codex \u5bf9\u8bdd\u76ee\u5f55\u60ac\u6d6e\u7403\u3002",
+      "\u542f\u52a8\u76ee\u5f55\u5de5\u5177\uff0c\u5e2e\u6211\u5feb\u901f\u5b9a\u4f4d\u4e4b\u524d\u7684\u6d88\u606f\u3002"
+    ]
+  }
+}

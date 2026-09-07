@@ -1,0 +1,13 @@
+# Local validation captures and one-off inspection helpers
+work/
+
+# Common editor and OS noise
+.DS_Store
+Thumbs.db
+*.user
+*.suo
+
+# Build intermediates; the checked-in bin/ executable is the plugin's runnable payload.
+obj/
+*.pdb
+*.cache
