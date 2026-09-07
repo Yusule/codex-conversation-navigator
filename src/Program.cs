@@ -999,8 +999,11 @@ namespace CodexConversationNavigator
         private readonly TextBlock _count;
         private readonly TextBlock _status;
         private readonly Button _modeButton;
+        private readonly Button _refreshButton;
         private readonly System.Windows.Controls.Image _backdropImage;
         private readonly Grid _contentRoot;
+        private DispatcherTimer _refreshResetTimer;
+        private bool _manualRefreshPending;
         private Point _headerMouseDown;
         private Point _panelDown;
         private Point _bubbleDown;
@@ -1148,10 +1151,26 @@ namespace CodexConversationNavigator
             Grid.SetColumn(_modeButton, 1);
             header.Children.Add(_modeButton);
 
-            Button refresh = HeaderButton("刷新", "刷新对话目录", false);
-            refresh.Click += delegate { _controller.Refresh(); };
-            Grid.SetColumn(refresh, 2);
-            header.Children.Add(refresh);
+            _refreshButton = HeaderButton("刷新", "刷新对话目录", false);
+            _refreshButton.Width = 58;
+            _refreshButton.ToolTip = "刷新当前对话目录";
+            _refreshButton.RenderTransformOrigin = new Point(0.5, 0.5);
+            _refreshButton.RenderTransform = new ScaleTransform(1, 1);
+            _refreshButton.PreviewMouseLeftButtonDown += delegate { ShowRefreshPressedState(); };
+            _refreshButton.PreviewMouseLeftButtonUp += delegate { ReleaseRefreshPressedState(); };
+            _refreshButton.LostMouseCapture += delegate { ReleaseRefreshPressedState(); };
+            _refreshButton.PreviewKeyDown += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.Key == Key.Space || e.Key == Key.Enter) ShowRefreshPressedState();
+            };
+            _refreshButton.PreviewKeyUp += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.Key == Key.Space || e.Key == Key.Enter) ReleaseRefreshPressedState();
+            };
+            _refreshButton.LostKeyboardFocus += delegate { ReleaseRefreshPressedState(); };
+            _refreshButton.Click += delegate { BeginManualRefresh(); };
+            Grid.SetColumn(_refreshButton, 2);
+            header.Children.Add(_refreshButton);
             Button close = HeaderButton("×", "收起对话目录", true);
             close.FontSize = 20;
             close.Click += delegate { _controller.HidePanel(); };
@@ -1480,6 +1499,7 @@ namespace CodexConversationNavigator
             _status.Text = error ?? ViewModeLabel() + " · 点击任意一行即可定位";
             _status.Foreground = error == null ? WarmGlassTheme.MutedInk : WarmGlassTheme.Error;
             ApplyFilter();
+            CompleteManualRefresh(error == null);
         }
 
         public void SetError(string error)
@@ -1517,6 +1537,93 @@ namespace CodexConversationNavigator
             _count.Text = _list.Items.Count == _messages.Count
                 ? _messages.Count + " 条"
                 : _list.Items.Count + " / " + _messages.Count + " 条";
+        }
+
+        private void BeginManualRefresh()
+        {
+            if (_manualRefreshPending) return;
+            if (_refreshResetTimer != null) _refreshResetTimer.Stop();
+            _manualRefreshPending = true;
+            _refreshButton.Content = "刷新中";
+            _refreshButton.IsEnabled = false;
+            _refreshButton.Background = WarmGlassTheme.UserBubble;
+            _refreshButton.BorderBrush = WarmGlassTheme.Accent;
+            _refreshButton.Foreground = WarmGlassTheme.AccentDark;
+            AutomationProperties.SetName(_refreshButton, "正在刷新对话目录");
+            AnimateRefreshScale(1, 120);
+            _controller.Refresh();
+        }
+
+        private void CompleteManualRefresh(bool success)
+        {
+            if (!_manualRefreshPending) return;
+            _manualRefreshPending = false;
+            _refreshButton.IsEnabled = true;
+            _refreshButton.Content = success ? "完成" : "重试";
+            _refreshButton.Background = success
+                ? WarmGlassTheme.Accent
+                : WarmGlassTheme.Solid("#EFFFF0EC");
+            _refreshButton.BorderBrush = success ? WarmGlassTheme.AccentDark : WarmGlassTheme.Error;
+            _refreshButton.Foreground = success ? Brushes.White : WarmGlassTheme.Error;
+            AutomationProperties.SetName(_refreshButton, success ? "对话目录刷新完成" : "刷新失败，点击重试");
+            AnimateRefreshScale(1, 120);
+
+            if (_refreshResetTimer != null) _refreshResetTimer.Stop();
+            _refreshResetTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(success ? 900 : 1400)
+            };
+            _refreshResetTimer.Tick += delegate
+            {
+                _refreshResetTimer.Stop();
+                if (!_manualRefreshPending) RestoreRefreshIdleState();
+            };
+            _refreshResetTimer.Start();
+        }
+
+        private void ShowRefreshPressedState()
+        {
+            if (_manualRefreshPending || !_refreshButton.IsEnabled) return;
+            _refreshButton.Background = WarmGlassTheme.Accent;
+            _refreshButton.BorderBrush = WarmGlassTheme.AccentDark;
+            _refreshButton.Foreground = Brushes.White;
+            AnimateRefreshScale(0.96, 70);
+        }
+
+        private void ReleaseRefreshPressedState()
+        {
+            AnimateRefreshScale(1, 120);
+            if (!_manualRefreshPending && _refreshButton.Content as string == "刷新")
+                RestoreRefreshIdleState();
+        }
+
+        private void RestoreRefreshIdleState()
+        {
+            _refreshButton.Content = "刷新";
+            _refreshButton.IsEnabled = true;
+            _refreshButton.Background = WarmGlassTheme.Card;
+            _refreshButton.BorderBrush = WarmGlassTheme.EdgeGradient();
+            _refreshButton.Foreground = WarmGlassTheme.Ink;
+            AutomationProperties.SetName(_refreshButton, "刷新对话目录");
+        }
+
+        private void AnimateRefreshScale(double targetScale, int durationMilliseconds)
+        {
+            var transform = _refreshButton.RenderTransform as ScaleTransform;
+            if (transform == null || !SystemParameters.ClientAreaAnimation) return;
+            var easing = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+            transform.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation
+            {
+                To = targetScale,
+                Duration = TimeSpan.FromMilliseconds(durationMilliseconds),
+                EasingFunction = easing
+            }, HandoffBehavior.SnapshotAndReplace);
+            transform.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation
+            {
+                To = targetScale,
+                Duration = TimeSpan.FromMilliseconds(durationMilliseconds),
+                EasingFunction = easing
+            }, HandoffBehavior.SnapshotAndReplace);
         }
 
         private void CycleViewMode()
