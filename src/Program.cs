@@ -193,33 +193,59 @@ namespace CodexConversationNavigator
                     height = Math.Max(1, rect.Bottom - rect.Top);
                 }
 
-                using (var bitmap = new System.Drawing.Bitmap(
-                    width, height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
-                {
-                    using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(bitmap))
-                    {
-                        graphics.CopyFromScreen(left, top, 0, 0, bitmap.Size,
-                            System.Drawing.CopyPixelOperation.SourceCopy);
-                    }
+                return CapturePixels(left, top, width, height);
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
-                    IntPtr bitmapHandle = bitmap.GetHbitmap();
-                    try
-                    {
-                        BitmapSource source = Imaging.CreateBitmapSourceFromHBitmap(
-                            bitmapHandle, IntPtr.Zero, Int32Rect.Empty,
-                            BitmapSizeOptions.FromEmptyOptions());
-                        source.Freeze();
-                        return source;
-                    }
-                    finally
-                    {
-                        DeleteObject(bitmapHandle);
-                    }
+        public static BitmapSource Capture(Rect logicalBounds)
+        {
+            try
+            {
+                using (System.Drawing.Graphics display = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
+                {
+                    double scaleX = display.DpiX / 96.0;
+                    double scaleY = display.DpiY / 96.0;
+                    int left = (int)Math.Round(logicalBounds.Left * scaleX);
+                    int top = (int)Math.Round(logicalBounds.Top * scaleY);
+                    int width = Math.Max(1, (int)Math.Round(logicalBounds.Width * scaleX));
+                    int height = Math.Max(1, (int)Math.Round(logicalBounds.Height * scaleY));
+                    return CapturePixels(left, top, width, height);
                 }
             }
             catch
             {
                 return null;
+            }
+        }
+
+        private static BitmapSource CapturePixels(int left, int top, int width, int height)
+        {
+            using (var bitmap = new System.Drawing.Bitmap(
+                width, height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
+            {
+                using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(bitmap))
+                {
+                    graphics.CopyFromScreen(left, top, 0, 0, bitmap.Size,
+                        System.Drawing.CopyPixelOperation.SourceCopy);
+                }
+
+                IntPtr bitmapHandle = bitmap.GetHbitmap();
+                try
+                {
+                    BitmapSource source = Imaging.CreateBitmapSourceFromHBitmap(
+                        bitmapHandle, IntPtr.Zero, Int32Rect.Empty,
+                        BitmapSizeOptions.FromEmptyOptions());
+                    source.Freeze();
+                    return source;
+                }
+                finally
+                {
+                    DeleteObject(bitmapHandle);
+                }
             }
         }
     }
@@ -954,6 +980,7 @@ namespace CodexConversationNavigator
         {
             if (e.ChangedButton != MouseButton.Left) return;
             Wake();
+            _controller.PreparePanelBackdrop();
             _mouseDown = PointToScreen(e.GetPosition(this));
             _windowDown = new Point(Left, Top);
             _dragging = false;
@@ -1004,6 +1031,7 @@ namespace CodexConversationNavigator
         private readonly Grid _contentRoot;
         private DispatcherTimer _refreshResetTimer;
         private bool _manualRefreshPending;
+        private int _backdropRefreshGeneration;
         private Point _headerMouseDown;
         private Point _panelDown;
         private Point _bubbleDown;
@@ -1022,6 +1050,7 @@ namespace CodexConversationNavigator
             ResizeMode = ResizeMode.NoResize;
             ShowInTaskbar = false;
             Topmost = true;
+            ShowActivated = false;
             FontFamily = new FontFamily("Microsoft YaHei UI");
 
             var root = new Grid();
@@ -1277,6 +1306,18 @@ namespace CodexConversationNavigator
             Deactivated += delegate { };
         }
 
+        public void Prewarm()
+        {
+            BeginAnimation(OpacityProperty, null);
+            Opacity = 0;
+            Left = SystemParameters.VirtualScreenLeft - Width - 64;
+            Top = SystemParameters.VirtualScreenTop - Height - 64;
+            Show();
+            UpdateLayout();
+            Hide();
+            Opacity = 1;
+        }
+
         private Point ScreenPointInDips(Point localPoint)
         {
             Point devicePoint = PointToScreen(localPoint);
@@ -1450,38 +1491,58 @@ namespace CodexConversationNavigator
         public void PrepareEntrance(double horizontalOffset)
         {
             BeginAnimation(OpacityProperty, null);
-            Opacity = 0;
+            Opacity = 1;
             _contentRoot.RenderTransform = new TranslateTransform(horizontalOffset, 0);
         }
 
         public void UpdateBackdrop()
         {
+            CancelPendingBackdropRefresh();
             BitmapSource source = BackdropCapture.Capture(this);
             if (source != null) _backdropImage.Source = source;
+        }
+
+        public void QueueBackdropRefresh()
+        {
+            Rect bounds = new Rect(Left, Top, Width, Height);
+            int generation = Interlocked.Increment(ref _backdropRefreshGeneration);
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                BitmapSource source = BackdropCapture.Capture(bounds);
+                if (source == null) return;
+                try
+                {
+                    Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(delegate
+                    {
+                        if (generation != _backdropRefreshGeneration) return;
+                        _backdropImage.Source = source;
+                    }));
+                }
+                catch { }
+            });
+        }
+
+        public void CancelPendingBackdropRefresh()
+        {
+            Interlocked.Increment(ref _backdropRefreshGeneration);
         }
 
         public void PlayEntrance()
         {
             BeginAnimation(OpacityProperty, null);
+            Opacity = 1;
+            var transform = _contentRoot.RenderTransform as TranslateTransform;
             if (!SystemParameters.ClientAreaAnimation)
             {
-                Opacity = 1;
-                var still = _contentRoot.RenderTransform as TranslateTransform;
-                if (still != null) still.X = 0;
+                if (transform != null) transform.X = 0;
                 return;
             }
-            var animation = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-            };
-            BeginAnimation(OpacityProperty, animation, HandoffBehavior.SnapshotAndReplace);
-            var transform = _contentRoot.RenderTransform as TranslateTransform;
             if (transform != null)
             {
                 transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation
                 {
                     To = 0,
-                    Duration = TimeSpan.FromMilliseconds(180),
+                    Duration = TimeSpan.FromMilliseconds(90),
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
                 }, HandoffBehavior.SnapshotAndReplace);
             }
@@ -1871,8 +1932,11 @@ namespace CodexConversationNavigator
     internal sealed class NavigatorController
     {
         private readonly AutomationMessageService _service = new AutomationMessageService();
+        private readonly object _refreshSync = new object();
         private RegisteredWaitHandle _activationRegistration;
         private bool? _panelOnLeft;
+        private int _refreshGeneration;
+        private bool _refreshWorkerRunning;
         public BubbleWindow Bubble { get; private set; }
         public DirectoryWindow Panel { get; private set; }
 
@@ -1899,8 +1963,11 @@ namespace CodexConversationNavigator
 
         public void Start()
         {
+            Panel.Prewarm();
             Bubble.Show();
             Bubble.SetExpanded(false);
+            RepositionPanel();
+            Panel.QueueBackdropRefresh();
         }
 
         public void TogglePanel()
@@ -1916,10 +1983,9 @@ namespace CodexConversationNavigator
             RepositionPanel();
             if (opening)
             {
-                Panel.PrepareEntrance(_panelOnLeft == true ? 8 : -8);
-                Panel.UpdateBackdrop();
+                Panel.CancelPendingBackdropRefresh();
+                Panel.PrepareEntrance(_panelOnLeft == true ? 4 : -4);
                 Panel.Show();
-                Panel.UpdateLayout();
                 Panel.PlayEntrance();
             }
             Bubble.SetExpanded(true);
@@ -1930,7 +1996,11 @@ namespace CodexConversationNavigator
 
         public void HidePanel()
         {
-            if (Panel.IsVisible) Panel.Hide();
+            if (Panel.IsVisible)
+            {
+                Panel.Hide();
+                Panel.QueueBackdropRefresh();
+            }
             Bubble.SetExpanded(false);
             _panelOnLeft = null;
         }
@@ -1938,13 +2008,55 @@ namespace CodexConversationNavigator
         public void Refresh()
         {
             Panel.SetLoading();
-            Panel.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(delegate
+            bool startWorker;
+            lock (_refreshSync)
             {
+                _refreshGeneration++;
+                startWorker = !_refreshWorkerRunning;
+                if (startWorker) _refreshWorkerRunning = true;
+            }
+            if (startWorker) ThreadPool.QueueUserWorkItem(delegate { RunRefreshWorker(); });
+        }
+
+        private void RunRefreshWorker()
+        {
+            while (true)
+            {
+                int generation;
+                lock (_refreshSync) generation = _refreshGeneration;
+
                 ReadResult result = _service.ReadMessages();
-                Panel.SetMessages(result.Messages, result.Error);
-                Bubble.SetStatus(result.Error ?? ("已读取 " + result.Messages.Count + " 条对话"));
-                Panel.FocusDirectory();
-            }));
+                bool publish;
+                lock (_refreshSync)
+                {
+                    publish = generation == _refreshGeneration;
+                    if (publish) _refreshWorkerRunning = false;
+                }
+                if (!publish) continue;
+
+                try
+                {
+                    Panel.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(delegate
+                    {
+                        lock (_refreshSync)
+                        {
+                            if (generation != _refreshGeneration) return;
+                        }
+                        Panel.SetMessages(result.Messages, result.Error);
+                        Bubble.SetStatus(result.Error ?? ("已读取 " + result.Messages.Count + " 条对话"));
+                        if (Panel.IsVisible) Panel.FocusDirectory();
+                    }));
+                }
+                catch { }
+                return;
+            }
+        }
+
+        public void PreparePanelBackdrop()
+        {
+            if (Panel == null || Panel.IsVisible) return;
+            RepositionPanel();
+            Panel.QueueBackdropRefresh();
         }
 
         public void Navigate(MessageEntry message)
@@ -2029,7 +2141,12 @@ namespace CodexConversationNavigator
 
         public void RefreshBackdrop()
         {
-            if (Panel == null || !Panel.IsVisible) return;
+            if (Panel == null) return;
+            if (!Panel.IsVisible)
+            {
+                Panel.QueueBackdropRefresh();
+                return;
+            }
             Panel.BeginAnimation(UIElement.OpacityProperty, null);
             Panel.Opacity = 0;
             Panel.Dispatcher.Invoke(DispatcherPriority.Render, new Action(delegate { }));
