@@ -1020,6 +1020,8 @@ namespace CodexConversationNavigator
 
     internal sealed class DirectoryWindow : Window
     {
+        private static readonly ImageSource AssistantAvatarSource = LoadAvatarSource("ai-robot-256.png");
+        private static readonly ImageSource UserAvatarSource = LoadAvatarSource("user-cat-256.png");
         private readonly NavigatorController _controller;
         private readonly TextBox _filter;
         private readonly ListBox _list;
@@ -1721,6 +1723,70 @@ namespace CodexConversationNavigator
             return "全部对话";
         }
 
+        private static ImageSource LoadAvatarSource(string fileName)
+        {
+            string path = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "..",
+                "assets",
+                "avatars",
+                "2026-09-14",
+                fileName));
+            if (!File.Exists(path)) return null;
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(path, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+
+        private static FrameworkElement CreateAvatar(bool isUser)
+        {
+            ImageSource source = isUser ? UserAvatarSource : AssistantAvatarSource;
+            var avatar = new Grid
+            {
+                Width = 46,
+                Height = 46,
+                Margin = isUser ? new Thickness(7, 0, 0, 0) : new Thickness(0, 0, 7, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                IsHitTestVisible = false
+            };
+
+            if (source != null)
+            {
+                var image = new System.Windows.Controls.Image
+                {
+                    Source = source,
+                    Width = 46,
+                    Height = 46,
+                    Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    SnapsToDevicePixels = true
+                };
+                RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+                avatar.Children.Add(image);
+            }
+            else
+            {
+                avatar.Children.Add(new TextBlock
+                {
+                    Text = isUser ? "你" : "AI",
+                    Foreground = isUser ? WarmGlassTheme.Ink : WarmGlassTheme.AccentDark,
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            return avatar;
+        }
+
         private ListBoxItem CreateItem(MessageEntry message)
         {
             var item = new ListBoxItem
@@ -1743,7 +1809,7 @@ namespace CodexConversationNavigator
             bool isUser = message.Role == MessageRole.User;
             Brush baseBubble = isUser ? WarmGlassTheme.UserBubble : WarmGlassTheme.AssistantBubble;
             Brush hoverBubble = isUser ? WarmGlassTheme.UserBubbleHover : WarmGlassTheme.AssistantBubbleHover;
-            double bubbleWidth = Math.Max(148, Math.Min(292, 42 + message.Preview.Length * 12.5));
+            double bubbleWidth = Math.Max(148, Math.Min(292, 24 + message.Preview.Length * 12.5));
 
             var row = new StackPanel
             {
@@ -1759,7 +1825,7 @@ namespace CodexConversationNavigator
                 BorderBrush = WarmGlassTheme.EdgeGradient(),
                 BorderThickness = new Thickness(1.1, 1.1, 1.8, 1.8),
                 CornerRadius = isUser ? new CornerRadius(15, 7, 15, 15) : new CornerRadius(7, 15, 15, 15),
-                Padding = new Thickness(9, 2, 9, 2),
+                Padding = new Thickness(12, 2, 12, 2),
                 Effect = new DropShadowEffect
                 {
                     Color = (Color)ColorConverter.ConvertFromString(isUser ? "#5B9D5B2B" : "#473E2A20"),
@@ -1769,35 +1835,7 @@ namespace CodexConversationNavigator
                 }
             };
             var grid = new Grid();
-            if (isUser)
-            {
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
-            }
-            else
-            {
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            }
-            var badge = new Border
-            {
-                Background = isUser ? WarmGlassTheme.Ink : WarmGlassTheme.Accent,
-                CornerRadius = new CornerRadius(11),
-                Width = 30,
-                Height = 30,
-                Margin = isUser ? new Thickness(8, 0, 0, 0) : new Thickness(0, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = new TextBlock
-                {
-                    Text = isUser ? "你" : "AI",
-                    Foreground = Brushes.White,
-                    FontSize = isUser ? 12 : 10,
-                    FontWeight = FontWeights.SemiBold,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
-            };
-            AutomationProperties.SetName(badge, isUser ? "用户" : "大模型");
+            var avatar = CreateAvatar(isUser);
 
             var preview = new TextBlock
             {
@@ -1808,27 +1846,16 @@ namespace CodexConversationNavigator
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(3, 0, 3, 0)
             };
-            var number = new TextBlock
-            {
-                Text = message.Number.ToString(CultureInfo.InvariantCulture),
-                Foreground = WarmGlassTheme.QuietInk,
-                FontSize = 10,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            Grid.SetColumn(preview, isUser ? 0 : 1);
-            Grid.SetColumn(number, isUser ? 1 : 0);
             grid.Children.Add(preview);
-            grid.Children.Add(number);
             card.Child = grid;
             if (isUser)
             {
                 row.Children.Add(card);
-                row.Children.Add(badge);
+                row.Children.Add(avatar);
             }
             else
             {
-                row.Children.Add(badge);
+                row.Children.Add(avatar);
                 row.Children.Add(card);
             }
             item.Content = row;

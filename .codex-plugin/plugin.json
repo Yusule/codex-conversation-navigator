@@ -1,6 +1,6 @@
 {
   "name": "codex-conversation-navigator",
-  "version": "0.1.0+codex.20260908154350",
+  "version": "0.1.0+codex.20260913163530",
   "description": "Local Windows floating navigator for Codex conversations",
   "author": {
     "name": "Local developer"
